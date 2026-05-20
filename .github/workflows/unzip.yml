@@ -1,0 +1,23 @@
+name: Unzip OfflineSkins
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unzip OfflineSkins.zip to repository root
+        run: |
+          unzip -o OfflineSkins.zip -d .
+
+      - name: Upload unpacked files
+        uses: actions/upload-artifact@v4
+        with:
+          name: unpacked-offlineskins
+          path: .
