@@ -5,4 +5,5 @@ api-version: 1.21
 
 commands:
   setskin:
-    usage: /setskin <player> <file>
+    usage: /setskin <player> <skinUrl>
+    description: Changes a player's skin using a skin URL
