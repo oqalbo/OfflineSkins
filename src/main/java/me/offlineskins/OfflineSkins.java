@@ -8,17 +8,18 @@ import org.bukkit.profile.PlayerProfile;
 import org.bukkit.profile.PlayerTextures;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.file.Files;
+import java.util.Base64;
 
 public class OfflineSkins extends JavaPlugin implements CommandExecutor {
 
-    private final File skinFolder = new File(getDataFolder(), "skins");
-    private final Map<String, String> cache = new HashMap<>();
+    private File skinFolder;
 
     @Override
     public void onEnable() {
+        skinFolder = new File(getDataFolder(), "skins");
         skinFolder.mkdirs();
+
         getCommand("setskin").setExecutor(this);
     }
 
@@ -38,12 +39,11 @@ public class OfflineSkins extends JavaPlugin implements CommandExecutor {
 
         File file = new File(skinFolder, args[1] + ".png");
         if (!file.exists()) {
-            sender.sendMessage("Skin not found");
+            sender.sendMessage("Skin not found: " + file.getName());
             return true;
         }
 
         applySkin(target, file);
-
         sender.sendMessage("Skin applied!");
         return true;
     }
@@ -51,20 +51,28 @@ public class OfflineSkins extends JavaPlugin implements CommandExecutor {
     private void applySkin(Player player, File file) {
 
         try {
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            String base64 = Base64.getEncoder().encodeToString(bytes);
+
+            // THIS is the ONLY modern safe API
             PlayerProfile profile = player.getPlayerProfile();
             PlayerTextures textures = profile.getTextures();
 
-            // THIS is the correct Paper 1.21 method
-            textures.setSkin(file.toURI().toURL());
+            // IMPORTANT: use data URL format
+            textures.setSkin(java.net.URI.create(
+                    "data:image/png;base64," + base64
+            ).toURL());
 
             profile.setTextures(textures);
             player.setPlayerProfile(profile);
 
-            // force client refresh
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                p.hidePlayer(this, player);
-                p.showPlayer(this, player);
-            }
+            // force refresh
+            Bukkit.getScheduler().runTask(this, () -> {
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    p.hidePlayer(this, player);
+                    p.showPlayer(this, player);
+                }
+            });
 
         } catch (Exception e) {
             e.printStackTrace();
