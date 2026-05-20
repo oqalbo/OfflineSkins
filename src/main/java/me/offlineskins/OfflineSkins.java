@@ -1,31 +1,25 @@
 package me.offlineskins;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.profile.PlayerProfile;
+import org.bukkit.profile.PlayerTextures;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 public class OfflineSkins extends JavaPlugin implements CommandExecutor {
 
     private final File skinFolder = new File(getDataFolder(), "skins");
-    private final File dataFile = new File(getDataFolder(), "data.json");
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
-    private Map<String, String> skinMap = new HashMap<>();
+    private final Map<String, String> cache = new HashMap<>();
 
     @Override
     public void onEnable() {
         skinFolder.mkdirs();
-        loadData();
-
         getCommand("setskin").setExecutor(this);
-
-        Bukkit.getScheduler().runTaskLater(this, this::reapply, 40L);
     }
 
     @Override
@@ -36,57 +30,44 @@ public class OfflineSkins extends JavaPlugin implements CommandExecutor {
             return true;
         }
 
-        Player p = Bukkit.getPlayer(args[0]);
-        if (p == null) {
+        Player target = Bukkit.getPlayer(args[0]);
+        if (target == null) {
             sender.sendMessage("Player not found");
             return true;
         }
 
         File file = new File(skinFolder, args[1] + ".png");
         if (!file.exists()) {
-            sender.sendMessage("File not found: " + file.getName());
+            sender.sendMessage("Skin not found");
             return true;
         }
 
-        try {
-            String texture = SkinUtil.toBase64(file);
+        applySkin(target, file);
 
-            skinMap.put(p.getName(), texture);
-            saveData();
-
-            SkinUtil.apply(this, p, texture);
-
-            sender.sendMessage("Skin applied!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
+        sender.sendMessage("Skin applied!");
         return true;
     }
 
-    private void saveData() {
-        try (Writer w = new FileWriter(dataFile)) {
-            gson.toJson(skinMap, w);
-        } catch (Exception ignored) {}
-    }
+    private void applySkin(Player player, File file) {
 
-    private void loadData() {
-        if (!dataFile.exists()) return;
+        try {
+            PlayerProfile profile = player.getPlayerProfile();
+            PlayerTextures textures = profile.getTextures();
 
-        try (Reader r = new FileReader(dataFile)) {
-            skinMap = gson.fromJson(r, HashMap.class);
-            if (skinMap == null) skinMap = new HashMap<>();
-        } catch (Exception e) {
-            skinMap = new HashMap<>();
-        }
-    }
+            // THIS is the correct Paper 1.21 method
+            textures.setSkin(file.toURI().toURL());
 
-    private void reapply() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            String t = skinMap.get(p.getName());
-            if (t != null) {
-                SkinUtil.apply(this, p, t);
+            profile.setTextures(textures);
+            player.setPlayerProfile(profile);
+
+            // force client refresh
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.hidePlayer(this, player);
+                p.showPlayer(this, player);
             }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
