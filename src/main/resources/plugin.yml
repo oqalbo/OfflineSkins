@@ -1,0 +1,8 @@
+name: OfflineSkins
+version: 1.0
+main: me.offlineskins.OfflineSkins
+api-version: 1.21
+
+commands:
+  setskin:
+    usage: /setskin <player> <file>
